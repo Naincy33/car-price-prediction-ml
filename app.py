@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+import plotly.express as px
+import plotly.graph_objects as go
 
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
@@ -12,28 +12,28 @@ from sklearn.metrics import (
     mean_squared_error
 )
 
-# Page setup
+# Setting page layout
 st.set_page_config(
     page_title="Car Price Prediction",
     page_icon="🚗",
     layout="wide"
 )
 
-# Reading dataset
+# Loading dataset
 df = pd.read_csv("ford.csv")
 
-# Features and target
+# Input features and target column
 X = df.drop("price", axis=1)
 y = df["price"]
 
-# Converting categorical data into numbers
+# Encoding categorical columns
 X = pd.get_dummies(
     X,
     columns=["model", "transmission", "fuelType"],
     drop_first=True
 )
 
-# Splitting data
+# Splitting dataset into training and testing data
 X_train, X_test, y_train, y_test = train_test_split(
     X,
     y,
@@ -49,10 +49,10 @@ model = RandomForestRegressor(
 
 model.fit(X_train, y_train)
 
-# Prediction on test data
+# Predictions on test data
 y_pred_test = model.predict(X_test)
 
-# Model performance
+# Model evaluation metrics
 r2 = r2_score(y_test, y_pred_test)
 
 mae = mean_absolute_error(
@@ -67,14 +67,17 @@ mse = mean_squared_error(
 
 rmse = mse ** 0.5
 
-# Main heading
+# App title
 st.title(" AI Powered Car Price Prediction System")
 
 st.write(
-    "Predict car prices using Machine Learning based on mileage, fuel type, engine size and more."
+    """
+Predict car prices using Machine Learning based on:
+model, mileage, fuel type, engine size and more.
+"""
 )
 
-# Sidebar info
+# Sidebar section
 st.sidebar.title(" About Project")
 
 st.sidebar.write(
@@ -89,27 +92,43 @@ This project predicts car prices using:
 """
 )
 
+st.sidebar.success("Model Used: Random Forest Regressor")
+
 st.sidebar.write(f"### R² Score: {r2:.2f}")
 
 st.sidebar.write(f"### MAE: {mae:,.2f}")
 
 st.sidebar.write(f"### RMSE: {rmse:,.2f}")
 
-st.sidebar.success("Model Used: Random Forest Regressor")
+# Workflow explanation
+st.sidebar.subheader("⚙️ Project Workflow")
 
-# Local images
+st.sidebar.write(
+    """
+1. Data Collection  
+2. Data Preprocessing  
+3. One Hot Encoding  
+4. Model Training  
+5. Prediction  
+6. Visualization
+"""
+)
+
+# Local car images
 car_images = {
 
-    "Mustang": "images/Mustang.webp",
+    "Mustang": "images/Mustang.jpg",
 
-    "Focus": "images/focus.webp",
+    "Focus": "images/Focus.jpg",
 
-    "Fiesta": "images/fiesta.webp",
+    "Fiesta": "images/Fiesta.jpg",
 
-    "Kuga": "images/kuga.webp"
+    "Kuga": "images/Kuga.jpg",
+
+    "EcoSport": "images/ecosport.jpg"
 }
 
-# User inputs
+# User input section
 st.subheader("Enter Car Details")
 
 model_name = st.selectbox(
@@ -117,12 +136,12 @@ model_name = st.selectbox(
     sorted(df["model"].unique())
 )
 
-# Showing image according to selected model
+# Displaying selected car image
 if model_name in car_images:
 
     st.image(
         car_images[model_name],
-        use_container_width=True
+        width=700
     )
 
 transmission = st.selectbox(
@@ -169,7 +188,7 @@ engineSize = st.number_input(
 # Predict button
 if st.button("Predict Price"):
 
-    # Creating dataframe from user input
+    # Creating dataframe from user inputs
     input_data = pd.DataFrame({
 
         "model": [model_name],
@@ -199,17 +218,17 @@ if st.button("Predict Price"):
 
             input_data[col] = 0
 
-    # Matching column order
+    # Matching training column order
     input_data = input_data[X.columns]
 
-    # Final prediction
+    # Predicting car price
     prediction = model.predict(input_data)
 
     price_gbp = prediction[0]
 
     price_inr = price_gbp * 113
 
-    # Displaying output
+    # Displaying prediction
     st.success(
         f"""
 ## Predicted Car Price
@@ -220,7 +239,7 @@ if st.button("Predict Price"):
 """
     )
 
-    # Comparison graph
+    # Comparing prediction with average market price
     comparison_df = pd.DataFrame({
 
         "Type": [
@@ -236,72 +255,83 @@ if st.button("Predict Price"):
 
     st.subheader("📊 Predicted Price Comparison")
 
-    fig5, ax5 = plt.subplots(figsize=(6, 4))
-
-    sns.barplot(
+    fig_compare = px.bar(
+        comparison_df,
         x="Type",
         y="Price",
-        data=comparison_df,
-        ax=ax5
+        color="Type",
+        template="plotly_dark",
+        text_auto=True
     )
 
-    ax5.set_title("Predicted vs Average Price")
-
-    st.pyplot(fig5)
+    st.plotly_chart(
+        fig_compare,
+        use_container_width=True
+    )
 
 # Actual vs predicted graph
 st.subheader("📊 Actual Price vs Predicted Price")
 
-fig, ax = plt.subplots(figsize=(10, 6))
+actual_vs_pred = pd.DataFrame({
 
-ax.scatter(
-    y_test,
-    y_pred_test
+    "Actual Price": y_test,
+
+    "Predicted Price": y_pred_test
+})
+
+fig1 = px.scatter(
+    actual_vs_pred,
+    x="Actual Price",
+    y="Predicted Price",
+    template="plotly_dark",
+    opacity=0.7
 )
 
-ax.plot(
-    [y_test.min(), y_test.max()],
-    [y_test.min(), y_test.max()],
-    "r--"
+fig1.add_trace(
+    go.Scatter(
+        x=[y_test.min(), y_test.max()],
+        y=[y_test.min(), y_test.max()],
+        mode="lines",
+        name="Perfect Prediction"
+    )
 )
 
-ax.set_xlabel("Actual Price")
+st.plotly_chart(
+    fig1,
+    use_container_width=True
+)
 
-ax.set_ylabel("Predicted Price")
-
-ax.set_title("Actual vs Predicted Car Prices")
-
-st.pyplot(fig)
-
-# Distribution graph
+# Price distribution graph
 st.subheader("📈 Price Distribution")
 
-fig2, ax2 = plt.subplots(figsize=(10, 5))
-
-sns.histplot(
-    df["price"],
-    bins=50,
-    kde=True,
-    ax=ax2
+fig2 = px.histogram(
+    df,
+    x="price",
+    nbins=50,
+    template="plotly_dark"
 )
 
-ax2.set_title("Distribution of Car Prices")
-
-st.pyplot(fig2)
+st.plotly_chart(
+    fig2,
+    use_container_width=True
+)
 
 # Correlation heatmap
 st.subheader("🔥 Correlation Heatmap")
 
-fig3, ax3 = plt.subplots(figsize=(10, 6))
+corr = df.corr(numeric_only=True)
 
-sns.heatmap(
-    df.corr(numeric_only=True),
-    annot=True,
-    cmap="coolwarm",
-    ax=ax3
+fig3 = px.imshow(
+    corr,
+    text_auto=True,
+    color_continuous_scale="RdBu",
+    template="plotly_dark"
 )
 
-st.pyplot(fig3)
+st.plotly_chart(
+    fig3,
+    use_container_width=True
+)
 
 # Feature importance graph
 st.subheader("⭐ Feature Importance")
@@ -320,15 +350,33 @@ feature_importance = feature_importance.sort_values(
     ascending=False
 ).head(10)
 
-fig4, ax4 = plt.subplots(figsize=(10, 5))
-
-sns.barplot(
+fig4 = px.bar(
+    feature_importance,
     x="Importance",
     y="Feature",
-    data=feature_importance,
-    ax=ax4
+    orientation="h",
+    template="plotly_dark",
+    color="Importance"
 )
 
-ax4.set_title("Top 10 Important Features")
+st.plotly_chart(
+    fig4,
+    use_container_width=True
+)
 
-st.pyplot(fig4)
+# Sample dataset preview
+st.subheader("🚘 Sample Predictions")
+
+sample_df = df[[
+    "model",
+    "year",
+    "mileage",
+    "fuelType",
+    "price"
+]].sample(5)
+
+st.dataframe(
+    sample_df,
+    use_container_width=True
+)
+
